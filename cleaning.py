@@ -2,14 +2,14 @@
 PC 클리너 - 임시 파일 스캔 및 삭제 (Windows 전용)
 
 [구현 범위]
-1. 임시 파일 및 캐시 정리   <- 스캔/삭제 함수 작성 완료 (실행부 호출은 주석 처리 상태)
+1. 임시 파일 및 캐시 정리   <- 스캔/삭제 기능 구현 완료 (기능 테스트 완료 *심볼릭 링크 테스트는 추후에)
 2. 시작 프로그램 관리       <- 예정
 3. 디스크 및 메모리 최적화  <- 예정
 (레지스트리 청소는 위험도가 높아 구현 제외)
 """
 
 import os
-
+import winreg
 
 # 정리 대상 목록: (환경변수 이름, 그 아래 하위 경로)
 # 경로를 직접 적지 않고 환경변수로 조합하므로 사용자명이나 PC가 달라도 동작함
@@ -19,12 +19,9 @@ CACHE_TARGETS = [
     ("LOCALAPPDATA", r"Microsoft\Edge\User Data\Default\Cache"),   # Edge 캐시
     ("LOCALAPPDATA", r"Microsoft\Windows\INetCache"),              # 인터넷 임시 파일
 ]
-
-
+startup_key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"  # 시작 프로그램 레지스트리 경로
+# 스캔 기능: 지정한 폴더 안의 파일과 폴더를 조사하여 통계를 출력한다.
 def scan_directory(scan_path):
-    """지정한 폴더 바로 아래 항목만 스캔해서
-    파일/폴더 개수, 용량(KB), 확장자 종류를 출력한다. (하위 폴더 내부는 탐색하지 않음)"""
-
     # with 블록이 끝나면 scandir 핸들이 자동으로 닫힘
     with os.scandir(scan_path) as it:
         temp = list(it)  # 폴더 안의 항목을 리스트로 한 번에 저장
@@ -77,7 +74,7 @@ def scan_directory(scan_path):
 # topdown=True를 쓰는 이유: 상위 폴더부터 탐색해야 링크/정션 폴더를 만났을 때
 # dirs에서 제거해 그 내부로 내려가지 않게 막을 수 있기 때문
 # (topdown=False는 하위 폴더를 먼저 탐색하므로 이런 차단이 불가능함)
-def delete_file_contents(scan_path):
+def delete_file_contents(scan_path,dry_run=True):
     safe_dirs = []   # 삭제해도 안전한 폴더 경로 모음
     safe_files = []  # 삭제해도 안전한 파일 경로 모음
 
@@ -94,13 +91,16 @@ def delete_file_contents(scan_path):
         for filename in files:
             file_path = os.path.join(root, filename)
             # 링크 파일은 삭제 대상에서 제외
-            if not os.path.isjunction(file_path) and not os.path.islink(file_path):
+            if not os.path.islink(file_path):
                 safe_files.append(file_path)
 
     # 2단계: 파일 먼저 삭제 (사용 중이거나 권한이 없는 파일은 오류만 출력하고 건너뜀)
     for filename in safe_files:
         try:
-            os.remove(filename)
+            if not dry_run:
+                os.remove(filename)
+            else:
+                print(f"[DRY RUN] Would delete: {filename}")
         except OSError as e:
             print(f"Error deleting {filename}: {e}")
 
@@ -108,10 +108,12 @@ def delete_file_contents(scan_path):
     # (rmdir은 빈 폴더만 삭제할 수 있기 때문)
     for dirname in reversed(safe_dirs):
         try:
-            os.rmdir(dirname)
+            if not dry_run:
+                os.rmdir(dirname)
+            else:
+                print(f"[DRY RUN] Would delete: {dirname}")
         except OSError as e:
             print(f"Error deleting {dirname}: {e}")
-
 
 # 메인 실행부: 정리 대상 경로를 하나씩 순회
 for env_var, sub_path in CACHE_TARGETS:
@@ -122,3 +124,7 @@ for env_var, sub_path in CACHE_TARGETS:
         continue  # 경로가 없으면 다음 대상으로 넘어감
     # scan_directory(scan_path)          # 스캔 (읽기 전용, 파일을 지우지 않음)
     # delete_file_contents(scan_path)    # 삭제 (실제로 지우므로 충분히 테스트한 뒤 활성화)
+
+
+
+
