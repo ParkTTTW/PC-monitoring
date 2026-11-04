@@ -1,72 +1,88 @@
-import winreg, struct, time
 import os
-import re
-from icoextract import IconExtractor,IconExtractorError
+import psutil
+import tkinter as tk
+from tkinter import ttk, messagebox
 
+# get process information
+# systemRoot 안에만
+# name 예외처리
+# allowRoot 만
 
-# 아이콘 추출 및 자동 폴더 초기화
-def icon_extract():
-    # 세이프 파일 경로 변경 필요
-    save_path = r"C:\icons"
-    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run", 0, winreg.KEY_READ) as key:
-        count = winreg.QueryInfoKey(key)[1]
-        for i in range(count):
-            # REG_EXPAND_SZ에 저장된 값을 가지고 오는거라 환경변수로 되어있는 PC에서는 누락 발생 가능
-            name, data, type_ = winreg.EnumValue(key, i)
+OS_ROOTS = os.environ.get("SystemRoot").lower()
 
-            #print(f"Name: {name}, Data: {data}, Type: {type_}")
+PROTECTED_NAMES = {
+    "system", "registry", "smss.exe", "csrss.exe", "wininit.exe",
+    "winlogon.exe", "services.exe", "lsass.exe",
+    "explorer.exe", "dwm.exe", "sihost.exe", "ctfmon.exe",
+    "taskhostw.exe", "fontdrvhost.exe",
+    "svchost.exe", "runtimebroker.exe", "searchhost.exe",
+    "msmpeng.exe", "securityhealthservice.exe", "code.exe", "python.exe"
+}
 
-            m = re.match(r'"([^"]*)"', data)
+ALLOWED_ROOTS = [
+    ("ProgramFiles",      ""),
+    ("ProgramFiles(x86)", ""),
+    ("LOCALAPPDATA",      "Programs"),
+]
 
-            # type(data) == list 리스트 안 객체로 파악해서 false 반환
-            if m :    
-                data_path = m.group(1) # (1) "경로" -> 경로
-            else :
-               idx = data.lower().rfind(".exe")  # 마지막 exe 추출 (이상한 경로 예외)
-               if idx == -1 :
-                   continue
-               else :
-                   data_path = data[:idx + 4]
-
-
-            try:
-                extractor = IconExtractor(data_path)
-                ico_file = os.path.join(save_path, name + ".ico") # 아이콘 이름을 name으로 해놔서 나중에 name으로 비교 후 짝 지으면 됨
-                extractor.export_icon(ico_file)
-            except IconExtractorError as e:
-                print(f"Error extracting icon for {name}: {e}")
-
-    stop = input("대기: space pass")
-    # 폴더 내 icon 파일 삭제 (초기화)
-    for filename in os.listdir(save_path):
-      file_path = os.path.join(save_path, filename)
-      if os.path.isfile(file_path):
-        os.remove(file_path)
-
-
-with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run", 0, winreg.KEY_READ) as key:
-    for i in range(winreg.QueryInfoKey(key)[1]):
-        name, data, type_ = winreg.EnumValue(key, i)
-        print(name, data.hex(), type_)
-
-
-# 시작프로그램 활성화
-def set_startup_enabled(selected_en): # selected_en 에는 무조건 list형태 이어야함
-
-    enabled = bytes([2]) + bytes(11)
-    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run", 0, winreg.KEY_SET_VALUE) as key:
-            for process in selected_en:
-                winreg.SetValueEx(key,process, 0, winreg.REG_BINARY, enabled)    
+allowed = []
+for proc in psutil.process_iter(["pid", "name", "exe", 'memory_info','create_time']):
+    target_root = proc.info["exe"]
+    if target_root is None:
+        continue
+    if str(target_root).lower().startswith(OS_ROOTS) :
+        continue
+    for env_var, sub_path in ALLOWED_ROOTS:
+        try:
+            safe_path = os.path.join(os.environ.get(env_var), sub_path)
+            if str(target_root).lower().startswith(safe_path.lower()):
+                name = proc.info["name"] or ""
+                if name == "":
+                    continue
+                if name.lower() not in PROTECTED_NAMES:
+                    pid = proc.info["pid"]
+                    # 메모리 정보를 MB 단위로 변환
+                    memory = round(proc.info['memory_info'].rss / (1024 * 1024), 1)
+                    create_time = proc.info['create_time']
+                    allowed.append((pid, name, memory, create_time))
+        except Exception as e:
+            print(f"Error processing {proc.info['name']}: {e}")
 
 
 
 
-# 시작프로그램 비활성화
-def set_startup_disabled(selected_dis): # selected_dis 에는 무조건 list형태 이어야함
-    # 시각 바이트가 리틀엔디안 이므로 struct.pack("<Q", ft) 낮은 바이트 부터 작성 
-    # 시각 바이트는 틀려도 상관 x  첫바이트 (02,03)으로 구별 
-    ft = int((time.time() + 11644473600) * 10_000_000)
-    disabled = bytes([3]) + bytes(3) + struct.pack("<Q", ft)
-    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run", 0, winreg.KEY_SET_VALUE) as key:
-        for process in selected_dis:
-            winreg.SetValueEx(key,process, 0, winreg.REG_BINARY, disabled)
+window = tk.Tk()
+
+tree = ttk.Treeview(window, columns=("pid", "name","memory","create_time"), show="headings")
+tree.pack(padx=10, pady=10)
+
+tree.heading("pid", text="PID")
+tree.heading("name", text="프로세스 이름")
+tree.heading("memory", text="메모리 (MB)")
+tree.heading("create_time", text="생성 시간")
+
+tree.column("pid", width=80, anchor=tk.CENTER)
+tree.column("name", width=250, anchor=tk.W)
+tree.column("memory", width=120, anchor=tk.E)
+
+
+tree['displaycolumns'] = ('pid', 'name', 'memory')  # create_time 열은 숨기기
+
+
+for pid, name, memory, create_time in allowed:
+    tree.insert("", tk.END, values=(pid, name, memory, create_time))
+
+def get_tree_selection():
+  selected_item = tree.selection()  # 선택된 행의 ID 리스트
+  if selected_item:
+    item_values = tree.item(selected_item[0])["values"]
+    print(f"선택된 데이터: {item_values}")
+
+
+#btn = tk.Button(window, text="행 데이터 가져오기", command=lambda: print(tree.selection())) # lamda(예약)를 해야 지금 선택된 행의 데이터를 가져올 수 있음. 그냥 print(tree.selection()) 하면 print() 바로 호출 실행
+btn = tk.Button(window, text="행 데이터 가져오기", command=get_tree_selection)
+btn.pack()
+
+window.mainloop()
+
+  
