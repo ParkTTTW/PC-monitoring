@@ -1,15 +1,6 @@
-"""
-PC 클리너 - 임시 파일 스캔 및 삭제 (Windows 전용)
-
-[구현 범위]
-1. 임시 파일 및 캐시 정리   <- 스캔/삭제 기능 구현 완료 (기능 테스트 완료 *심볼릭 링크 테스트는 추후에)
-2. 시작 프로그램 관리       <- 예정
-3. 디스크 및 메모리 최적화  <- 예정
-(레지스트리 청소는 위험도가 높아 구현 제외)
-"""
-
 import os
-import winreg
+# 임시 파일 및 폴더 정리 스크립트
+
 
 # 정리 대상 목록: (환경변수 이름, 그 아래 하위 경로)
 # 경로를 직접 적지 않고 환경변수로 조합하므로 사용자명이나 PC가 달라도 동작함
@@ -19,7 +10,6 @@ CACHE_TARGETS = [
     ("LOCALAPPDATA", r"Microsoft\Edge\User Data\Default\Cache"),   # Edge 캐시
     ("LOCALAPPDATA", r"Microsoft\Windows\INetCache"),              # 인터넷 임시 파일
 ]
-startup_key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"  # 시작 프로그램 레지스트리 경로
 # 스캔 기능: 지정한 폴더 안의 파일과 폴더를 조사하여 통계를 출력한다.
 def scan_directory(scan_path):
     # with 블록이 끝나면 scandir 핸들이 자동으로 닫힘
@@ -114,6 +104,10 @@ def delete_file_contents(scan_path,dry_run=True):
                 print(f"[DRY RUN] Would delete: {dirname}")
         except OSError as e:
             print(f"Error deleting {dirname}: {e}")
+
+
+
+
 
 # 메인 실행부: 정리 대상 경로를 하나씩 순회
 for env_var, sub_path in CACHE_TARGETS:
