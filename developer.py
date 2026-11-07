@@ -8,18 +8,15 @@ from tkinter import ttk, messagebox
 # systemRoot 안에만
 # name 예외처리
 # allowRoot 만
-class ProcessInfo:
+class ProcessInfo(tk.Frame):
 
-
-
-    def __init__(self):
-        global window
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
         
-        window = tk.Tk()
         
-        window.title("작업 관리자")
-    
-        self.tree = ttk.Treeview(window, columns=("pid", "name","memory","create_time"), show="headings")
+        
+        self.tree = ttk.Treeview(self, columns=("pid", "name","memory","create_time"), show="headings")
         self.tree.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
 
         self.tree.heading("pid", text="PID")
@@ -34,20 +31,21 @@ class ProcessInfo:
 
         self.tree['displaycolumns'] = ('pid', 'name', 'memory')  # create_time 열은 숨기기
 
-        btn = tk.Button(window, text="행 데이터 가져오기", command=lambda: print(self.tree.item(self.tree.selection()[0])["values"])) # lamda(예약)를 해야 지금 선택된 행의 데이터를 가져올 수 있음. 그냥 print(self.tree.selection()) 하면 print() 바로 호출 실행
+        btn = tk.Button(self, text="행 데이터 가져오기", command=lambda: print(self.tree.item(self.tree.selection()[0])["values"])) # lamda(예약)를 해야 지금 선택된 행의 데이터를 가져올 수 있음. 그냥 print(self.tree.selection()) 하면 print() 바로 호출 실행
         btn.pack(side=tk.LEFT, padx=5)
 
-        refresh_btn = tk.Button(window, text="새로고침", command=self.refresh_tree)
+        refresh_btn = tk.Button(self, text="🔄새로고침", command=self.refresh_tree)
         refresh_btn.pack(side=tk.LEFT, padx=5)
 
-        terminate_btn = tk.Button(window, text="작업 끝내기", command=lambda: self.terminate_process(self.get_tree_selection()[0], 
+        terminate_btn = tk.Button(self, text="작업 끝내기", command=lambda: self.terminate_process(self.get_tree_selection()[0], 
                                                                 self.get_tree_selection()[1], self.get_tree_selection()[3]), fg="red")
         
         terminate_btn.pack(side=tk.LEFT, padx=5)
 
-   
+
+
         self.refresh_tree()  # 초기 로드
-        window.mainloop()
+
 
 
     def get_allowed_processes(self):
