@@ -7,21 +7,28 @@ PC 클리너 - 임시 파일 스캔 및 삭제 (Windows 전용)
 3. 디스크 및 메모리 최적화  <-  프로세스 종료 기능 구현 완료 (기능 테스트 완료)
 (레지스트리 청소는 위험도가 높아 구현 제외)
 """
+import sys,os
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
 
 import psutil
 import tkinter as tk
 import speedtest
 from tkinter import ttk
-from developer import ProcessInfo
+from process import ProcessInfo
 from startup import StartupManager
 from systeminfo import SystemMonitorApp
 from cleaning import CleanProcess
+
 class MainApplication(tk.Tk):
     
     def __init__(self):
         super().__init__()
-        self.title("여시은 꺼")
+        self.title("SystemManager")
         self.geometry("600x500")
+        self.resizable(False, False)
         self.style = ttk.Style()
         self.style.theme_use("clam")
                 
@@ -34,7 +41,7 @@ class MainApplication(tk.Tk):
         self.frames = {}
         
         # 사용할 화면 클래스들을 등록
-        for PageClass in (ProcessInfo, StartupManager, SystemMonitorApp, CleanProcess):
+        for PageClass in (SystemMonitorApp, ProcessInfo, StartupManager, CleanProcess):
             page_name = PageClass.__name__
             # parent=container, controller=self(MainApplication)로 전달
             frame = PageClass(parent=container, controller=self)
@@ -47,6 +54,11 @@ class MainApplication(tk.Tk):
         """상단에 고정되어 화면 전환을 도와주는 메뉴 버튼 영역입니다."""
         nav_frame = tk.Frame(self, bg = "#e0e0e0",  padx=5, pady=5)
         nav_frame.pack(side="top", fill="x")
+
+        # 시스템 정보 모니터링 화면으로 가기
+        btn_system = ttk.Button(nav_frame, text="💻 시스템 정보 모니터링", 
+                                 command=lambda: self.show_frame("SystemMonitorApp"))
+        btn_system.pack(side="left", padx=5)
         
         # 프로세스 관리 화면으로 가기
         btn_process = ttk.Button(nav_frame, text="⚙️ 프로세스 관리", 
@@ -58,11 +70,8 @@ class MainApplication(tk.Tk):
                                  command=lambda: self.show_frame("StartupManager"))
         btn_startup.pack(side="left", padx=5)   
 
-        # 시스템 정보 모니터링 화면으로 가기
-        btn_system = ttk.Button(nav_frame, text="💻 시스템 정보 모니터링", 
-                                 command=lambda: self.show_frame("SystemMonitorApp"))
-        btn_system.pack(side="left", padx=5)
 
+        # 클리너화면으로 가기
         btn_cleaning = ttk.Button(nav_frame, text="🧹 클리너", 
                                          command=lambda: self.show_frame("CleanProcess"))
         btn_cleaning.pack(side="left", padx=5)

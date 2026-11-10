@@ -31,10 +31,9 @@ class ProcessInfo(tk.Frame):
 
         self.tree['displaycolumns'] = ('pid', 'name', 'memory')  # create_time 열은 숨기기
 
-        btn = tk.Button(self, text="행 데이터 가져오기", command=lambda: print(self.tree.item(self.tree.selection()[0])["values"])) # lamda(예약)를 해야 지금 선택된 행의 데이터를 가져올 수 있음. 그냥 print(self.tree.selection()) 하면 print() 바로 호출 실행
-        btn.pack(side=tk.LEFT, padx=5)
 
-        refresh_btn = tk.Button(self, text="🔄새로고침", command=self.refresh_tree)
+
+        refresh_btn = tk.Button(self, text="🔄새로고침", command=self.refresh_with_message)
         refresh_btn.pack(side=tk.LEFT, padx=5)
 
         terminate_btn = tk.Button(self, text="작업 끝내기", command=lambda: self.terminate_process(self.get_tree_selection()[0], 
@@ -88,7 +87,9 @@ class ProcessInfo(tk.Frame):
                 except Exception as e:
                     print(f"Error processing {proc.info['name']}: {e}")
         return allowed
-
+    def refresh_with_message(self):
+        self.refresh_tree()
+        messagebox.showinfo("완료", "새로고침이 완료되었습니다.")
     def refresh_tree(self):
         """현재 실행 중인 프로세스 목록을 가져와 표를 갱신합니다."""
         # 기존 목록 삭제

@@ -5,7 +5,7 @@ from icoextract import IconExtractor,IconExtractorError
 import tkinter as tk
 import tkinter.ttk as ttk
 from PIL import Image, ImageTk
-
+from tkinter import messagebox
 
 class StartupManager(tk.Frame):
 
@@ -13,6 +13,9 @@ class StartupManager(tk.Frame):
         super().__init__(parent)
         self.controller = controller
         self.startup_key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"  # 시작 프로그램 레지스트리 경로
+        # 아이콘 저장 경로 (사용자별 로컬 앱 데이터 폴더)
+        self.icon_dir = os.path.join(os.environ["LOCALAPPDATA"], "PC_monitoring", "icons")
+        os.makedirs(self.icon_dir, exist_ok=True)
         self.icons = {}
 
         self.tree = ttk.Treeview(self, columns=("data",), show="tree headings")
@@ -28,13 +31,13 @@ class StartupManager(tk.Frame):
         self.tree.column("data", width=250, anchor=tk.CENTER)
 
 
-        refresh_btn = tk.Button(self, text="🔄새로고침", command=self.check_startup)
+        refresh_btn = tk.Button(self, text="🔄새로고침", command=self.refresh_with_message)
         refresh_btn.pack(side=tk.LEFT, padx=5)
 
-        enabled_btn = tk.Button(self, text="활성화", command=lambda: self.set_startup_enabled([self.tree.item(self.tree.selection()[0])["values"][0]]), fg="red")
+        enabled_btn = tk.Button(self, text="활성화", command=lambda: self.set_startup_enabled([self.tree.item(self.tree.selection()[0])["text"]]), fg="red")
         enabled_btn.pack(side=tk.LEFT, padx=5)
 
-        disabled_btn = tk.Button(self, text="비활성화", command=lambda: self.set_startup_disabled([self.tree.item(self.tree.selection()[0])["values"][0]]), fg="red")
+        disabled_btn = tk.Button(self, text="비활성화", command=lambda: self.set_startup_disabled([self.tree.item(self.tree.selection()[0])["text"]]), fg="red")
         disabled_btn.pack(side=tk.LEFT, padx=5)
 
         self.check_startup()  # 초기 로드
@@ -46,7 +49,7 @@ class StartupManager(tk.Frame):
     def load_images(self, name):
         try:
             # 원본 이미지를 16x16 크기로 조절
-            img = Image.open(rf"C:\Users\qkrxo\PC_monitoring\icons\{name}.ico").resize((20, 20))
+            img = Image.open(rf"{self.icon_dir}\{name}.ico").resize((20, 20))
             self.user_icon = ImageTk.PhotoImage(img)
             self.icons[name] = self.user_icon
         except:
@@ -60,7 +63,7 @@ class StartupManager(tk.Frame):
     def icon_extract(self):
         # 경로 환경변수로 변경 필요
         global save_path
-        save_path = r"C:\Users\qkrxo\PC_monitoring\icons"
+        save_path = self.icon_dir
 
         # 폴더 내 icon 파일 삭제 (초기화)
         for filename in os.listdir(save_path):
@@ -91,6 +94,9 @@ class StartupManager(tk.Frame):
                 except (IconExtractorError, OSError) as e:
                     print(f"Error extracting icon for {name}: {e}")
     
+    def refresh_with_message(self):
+        self.check_startup()
+        messagebox.showinfo("완료", "새로고침이 완료되었습니다.")
 
     
     # 시작프로그램 레지스트리 값 확인 (새로고침)

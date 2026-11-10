@@ -37,7 +37,7 @@ class ProcessInfo:
         btn = tk.Button(window, text="행 데이터 가져오기", command=lambda: print(self.tree.item(self.tree.selection()[0])["values"])) # lamda(예약)를 해야 지금 선택된 행의 데이터를 가져올 수 있음. 그냥 print(self.tree.selection()) 하면 print() 바로 호출 실행
         btn.pack(side=tk.LEFT, padx=5)
 
-        refresh_btn = tk.Button(window, text="새로고침", command=self.refresh_tree)
+        refresh_btn = tk.Button(window, text="🔄새로고침", command=self.refresh_tree)
         refresh_btn.pack(side=tk.LEFT, padx=5)
 
         terminate_btn = tk.Button(window, text="작업 끝내기", command=lambda: self.terminate_process(self.get_tree_selection()[0], 
